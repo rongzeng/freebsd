@@ -64,15 +64,6 @@
 #include "miibus_if.h"
 #include "etherswitch_if.h"
 
-/* XXX belongs in arswitch_7240_reg.h */
-
-#define	AR7240_REG_CPU_PORT		0x78
-#define		AR7240_MIRROR_PORT_MASK		0x000000f0
-#define		AR7240_MIRROR_PORT_S		4
-#define		AR7240_CPU_PORT_EN		0x00000100
-
-#define	AR7240_REG_TAG_PRIORITY		0x70
-
 /*
  * AR7240 specific functions
  */
@@ -81,9 +72,8 @@ ar7240_hw_setup(struct arswitch_softc *sc)
 {
 
 	/* Enable CPU port; disable mirror port */
-	arswitch_writereg(sc->sc_dev, AR7240_REG_CPU_PORT,
-	    AR7240_CPU_PORT_EN |
-	    (15 << AR7240_MIRROR_PORT_S));
+	arswitch_writereg(sc->sc_dev, AR8X16_REG_CPU_PORT,
+	    AR8X16_CPU_PORT_EN | AR8X16_CPU_MIRROR_DIS);
 
 	/*
 	 * Let things settle; probing PHY4 doesn't seem reliable
@@ -102,11 +92,20 @@ ar7240_hw_global_setup(struct arswitch_softc *sc)
 {
 
 	/* Setup TAG priority mapping */
-	arswitch_writereg(sc->sc_dev, AR7240_REG_TAG_PRIORITY, 0xfa50);
+	arswitch_writereg(sc->sc_dev, AR8X16_REG_TAG_PRIO, 0xfa50);
 
-	/* XXX MTU */
+	/* Enable broadcast frames transmitted to the CPU */
+	arswitch_writereg(sc->sc_dev, AR8X16_REG_FLOOD_MASK,
+	    AR8X16_FLOOD_MASK_BCAST_TO_CPU | 0x003f003f);
 
-	/* XXX Service Tag */
+	/* Setup MTU */
+	arswitch_modifyreg(sc->sc_dev, AR8X16_REG_GLOBAL_CTRL,
+	    AR7240_GLOBAL_CTRL_MTU_MASK,
+	    SM(1536, AR7240_GLOBAL_CTRL_MTU_MASK));
+
+	/* Service Tag */
+	arswitch_modifyreg(sc->sc_dev, AR8X16_REG_SERVICE_TAG,
+	    AR8X16_SERVICE_TAG_MASK, 0);
 
 	return (0);
 }

@@ -29,6 +29,15 @@
 #ifndef __AR8X16_SWITCHREG_H__
 #define	__AR8X16_SWITCHREG_H__
 
+/* XXX doesn't belong here; stolen shamelessly from ath_hal/ah_internal.h */
+/*
+ * Register manipulation macros that expect bit field defines
+ * to follow the convention that an _S suffix is appended for
+ * a shift count, while the field mask has no suffix.
+ */
+#define	SM(_v, _f)	(((_v) << _f##_S) & (_f))
+#define	MS(_v, _f)	(((_v) & (_f)) >> _f##_S)
+
 /* Atheros specific MII registers */
 #define	MII_ATH_DBG_ADDR		0x1d
 #define	MII_ATH_DBG_DATA		0x1e
@@ -77,8 +86,13 @@
 
 #define	AR8X16_REG_GLOBAL_CTRL		0x0030
 #define		AR8216_GLOBAL_CTRL_MTU_MASK	0x00000fff
+#define		AR8216_GLOBAL_CTRL_MTU_MASK_S	0
 #define		AR8316_GLOBAL_CTRL_MTU_MASK	0x00007fff
+#define		AR8316_GLOBAL_CTRL_MTU_MASK_S	0
 #define		AR8236_GLOBAL_CTRL_MTU_MASK	0x00007fff
+#define		AR8236_GLOBAL_CTRL_MTU_MASK_S	0
+#define		AR7240_GLOBAL_CTRL_MTU_MASK	0x00003fff
+#define		AR7240_GLOBAL_CTRL_MTU_MASK_S	0
 
 #define	AR8X16_REG_VLAN_CTRL			0x0040
 #define		AR8X16_VLAN_OP			0x00000007
@@ -122,6 +136,9 @@
 
 #define	AR8X16_REG_CPU_PORT		0x0078
 #define		AR8X16_MIRROR_PORT_SHIFT	4
+#define		AR8X16_MIRROR_PORT_MASK		(0xf << AR8X16_MIRROR_PORT_SHIFT)
+#define		AR8X16_CPU_MIRROR_PORT(_p)	((_p) << AR8X16_MIRROR_PORT_SHIFT)
+#define		AR8X16_CPU_MIRROR_DIS		AR8X16_CPU_MIRROR_PORT(0xf)
 #define		AR8X16_CPU_PORT_EN		(1 << 8)
 
 #define	AR8X16_REG_MIB_FUNC0		0x0080
