@@ -1,7 +1,7 @@
 /*-
  * Copyright (c) 2001-2007, by Cisco Systems, Inc. All rights reserved.
- * Copyright (c) 2008-2011, by Randall Stewart. All rights reserved.
- * Copyright (c) 2008-2011, by Michael Tuexen. All rights reserved.
+ * Copyright (c) 2008-2012, by Randall Stewart. All rights reserved.
+ * Copyright (c) 2008-2012, by Michael Tuexen. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,14 +30,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-/* $KAME: sctputil.h,v 1.15 2005/03/06 16:04:19 itojun Exp $	 */
-
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
-#ifndef __sctputil_h__
-#define __sctputil_h__
 
+#ifndef _NETINET_SCTP_UTIL_H_
+#define _NETINET_SCTP_UTIL_H_
 
 #if defined(_KERNEL) || defined(__Userspace__)
 
@@ -188,8 +185,10 @@ sctp_abort_notification(struct sctp_tcb *, uint8_t, uint16_t,
 
 /* We abort responding to an IP packet for some reason */
 void
-sctp_abort_association(struct sctp_inpcb *, struct sctp_tcb *,
-    struct mbuf *, int, struct sctphdr *, struct mbuf *, uint32_t, uint16_t);
+sctp_abort_association(struct sctp_inpcb *, struct sctp_tcb *, struct mbuf *,
+    int, struct sctphdr *, struct mbuf *,
+    uint8_t, uint32_t,
+    uint32_t, uint16_t);
 
 
 /* We choose to abort via user input */
@@ -203,7 +202,9 @@ sctp_abort_an_association(struct sctp_inpcb *, struct sctp_tcb *,
 
 void 
 sctp_handle_ootb(struct mbuf *, int, int, struct sctphdr *,
-    struct sctp_inpcb *, struct mbuf *, uint32_t, uint16_t);
+    struct sctp_inpcb *,
+    uint8_t, uint32_t,
+    uint32_t, uint16_t);
 
 int 
 sctp_connectx_helper_add(struct sctp_tcb *stcb, struct sockaddr *addr,
@@ -384,7 +385,5 @@ sctp_auditing(int, struct sctp_inpcb *, struct sctp_tcb *,
 void sctp_audit_log(uint8_t, uint8_t);
 
 #endif
-
-
 #endif				/* _KERNEL */
 #endif

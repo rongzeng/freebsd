@@ -131,7 +131,7 @@ TUNABLE_INT("vm.boot_pages", &boot_pages);
 SYSCTL_INT(_vm, OID_AUTO, boot_pages, CTLFLAG_RD, &boot_pages, 0,
 	"number of pages allocated for bootstrapping the VM system");
 
-int pa_tryrelock_restart;
+static int pa_tryrelock_restart;
 SYSCTL_INT(_vm, OID_AUTO, tryrelock_restart, CTLFLAG_RD,
     &pa_tryrelock_restart, 0, "Number of tryrelock restarts");
 
@@ -647,7 +647,7 @@ PHYS_TO_VM_PAGE(vm_paddr_t pa)
 	long pi;
 
 	pi = atop(pa);
-	if (pi >= first_page && pi < vm_page_array_size) {
+	if (pi >= first_page && (pi - first_page) < vm_page_array_size) {
 		m = &vm_page_array[pi - first_page];
 		return (m);
 	}
@@ -930,7 +930,7 @@ vm_page_insert(vm_page_t m, vm_object_t object, vm_pindex_t pindex)
 	 * Since we are inserting a new and possibly dirty page,
 	 * update the object's OBJ_MIGHTBEDIRTY flag.
 	 */
-	if (m->aflags & PGA_WRITEABLE)
+	if (pmap_page_is_write_mapped(m))
 		vm_object_set_writeable_dirty(object);
 }
 
@@ -2675,11 +2675,11 @@ vm_page_clear_dirty_mask(vm_page_t m, vm_page_bits_t pagebits)
 
 	/*
 	 * If the object is locked and the page is neither VPO_BUSY nor
-	 * PGA_WRITEABLE, then the page's dirty field cannot possibly be
+	 * write mapped, then the page's dirty field cannot possibly be
 	 * set by a concurrent pmap operation.
 	 */
 	VM_OBJECT_LOCK_ASSERT(m->object, MA_OWNED);
-	if ((m->oflags & VPO_BUSY) == 0 && (m->aflags & PGA_WRITEABLE) == 0)
+	if ((m->oflags & VPO_BUSY) == 0 && !pmap_page_is_write_mapped(m))
 		m->dirty &= ~pagebits;
 	else {
 		/*
