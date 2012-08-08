@@ -77,6 +77,7 @@ __FBSDID("$FreeBSD$");
 #endif
 
 #include <vm/vm.h>
+#include <vm/vm_param.h>
 #include <vm/vm_extern.h>
 #include <vm/pmap.h>
 #include <vm/vm_map.h>
@@ -2189,6 +2190,10 @@ sysctl_kern_proc_vmmap(SYSCTL_HANDLER_ARGS)
 			kve->kve_flags |= KVME_FLAG_NEEDS_COPY;
 		if (entry->eflags & MAP_ENTRY_NOCOREDUMP)
 			kve->kve_flags |= KVME_FLAG_NOCOREDUMP;
+		if (entry->eflags & MAP_ENTRY_GROWS_UP)
+			kve->kve_flags |= KVME_FLAG_GROWS_UP;
+		if (entry->eflags & MAP_ENTRY_GROWS_DOWN)
+			kve->kve_flags |= KVME_FLAG_GROWS_DOWN;
 
 		last_timestamp = map->timestamp;
 		vm_map_unlock_read(map);

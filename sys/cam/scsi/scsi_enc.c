@@ -56,8 +56,6 @@ __FBSDID("$FreeBSD$");
 #include <cam/scsi/scsi_enc.h>
 #include <cam/scsi/scsi_enc_internal.h>
 
-#include <opt_enc.h>
-
 MALLOC_DEFINE(M_SCSIENC, "SCSI ENC", "SCSI ENC buffers");
 
 /* Enclosure type independent driver */
@@ -114,6 +112,16 @@ enc_init(void)
 }
 
 static void
+enc_devgonecb(void *arg)
+{
+	struct cam_periph *periph;
+
+	periph = (struct cam_periph *)arg;
+
+	cam_periph_release(periph);
+}
+
+static void
 enc_oninvalidate(struct cam_periph *periph)
 {
 	struct enc_softc *enc;
@@ -141,6 +149,8 @@ enc_oninvalidate(struct cam_periph *periph)
 	}
 	callout_drain(&enc->status_updater);
 
+	destroy_dev_sched_cb(enc->enc_dev, enc_devgonecb, periph);
+
 	xpt_print(periph->path, "lost device\n");
 }
 
@@ -152,9 +162,7 @@ enc_dtor(struct cam_periph *periph)
 	enc = periph->softc;
 
 	xpt_print(periph->path, "removing device entry\n");
-	cam_periph_unlock(periph);
-	destroy_dev(enc->enc_dev);
-	cam_periph_lock(periph);
+
 
 	/* If the sub-driver has a cleanup routine, call it */
 	if (enc->enc_vec.softc_cleanup != NULL)
@@ -951,9 +959,19 @@ enc_ctor(struct cam_periph *periph, void *arg)
 			goto out;
 		}
 	}
+
+	if (cam_periph_acquire(periph) != CAM_REQ_CMP) {
+		xpt_print(periph->path, "%s: lost periph during "
+			  "registration!\n", __func__);
+		cam_periph_lock(periph);
+
+		return (CAM_REQ_CMP_ERR);
+	}
+
 	enc->enc_dev = make_dev(&enc_cdevsw, periph->unit_number,
 	    UID_ROOT, GID_OPERATOR, 0600, "%s%d",
 	    periph->periph_name, periph->unit_number);
+
 	cam_periph_lock(periph);
 	enc->enc_dev->si_drv1 = periph;
 

@@ -683,6 +683,13 @@ pcib_attach_common(device_t dev)
      *     would be more widely routed than absolutely necessary.  We could
      *     then do a walk of the tree later and fix it.
      */
+
+    /*
+     * Always enable busmastering on bridges so that transactions
+     * initiated on the secondary bus are passed through to the
+     * primary bus.
+     */
+    pci_enable_busmaster(dev);
 }
 
 int
@@ -1038,7 +1045,7 @@ pcib_alloc_resource(device_t dev, device_t child, int type, int *rid,
 	case SYS_RES_IOPORT:
 		r = pcib_suballoc_resource(sc, &sc->io, child, type, rid, start,
 		    end, count, flags);
-		if (r != NULL)
+		if (r != NULL || (sc->flags & PCIB_SUBTRACTIVE) != 0)
 			break;
 		if (pcib_grow_window(sc, &sc->io, type, start, end, count,
 		    flags) == 0)
@@ -1062,7 +1069,7 @@ pcib_alloc_resource(device_t dev, device_t child, int type, int *rid,
 		}
 		r = pcib_suballoc_resource(sc, &sc->mem, child, type, rid,
 		    start, end, count, flags);
-		if (r != NULL)
+		if (r != NULL || (sc->flags & PCIB_SUBTRACTIVE) != 0)
 			break;
 		if (flags & RF_PREFETCHABLE) {
 			if (pcib_grow_window(sc, &sc->pmem, type, start, end,

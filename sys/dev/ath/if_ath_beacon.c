@@ -266,6 +266,8 @@ ath_beacon_setup(struct ath_softc *sc, struct ath_buf *bf)
 	int flags, antenna;
 	const HAL_RATE_TABLE *rt;
 	u_int8_t rix, rate;
+	HAL_DMA_ADDR bufAddrList[4];
+	uint32_t segLenList[4];
 
 	DPRINTF(sc, ATH_DEBUG_BEACON_PROC, "%s: m %p len %u\n",
 		__func__, m, m->m_len);
@@ -277,14 +279,15 @@ ath_beacon_setup(struct ath_softc *sc, struct ath_buf *bf)
 
 	flags = HAL_TXDESC_NOACK;
 	if (ic->ic_opmode == IEEE80211_M_IBSS && sc->sc_hasveol) {
-		ds->ds_link = bf->bf_daddr;	/* self-linked */
+		/* self-linked descriptor */
+		ath_hal_settxdesclink(sc->sc_ah, ds, bf->bf_daddr);
 		flags |= HAL_TXDESC_VEOL;
 		/*
 		 * Let hardware handle antenna switching.
 		 */
 		antenna = sc->sc_txantenna;
 	} else {
-		ds->ds_link = 0;
+		ath_hal_settxdesclink(sc->sc_ah, ds, 0);
 		/*
 		 * Switch antenna every 4 beacons.
 		 * XXX assumes two antenna
@@ -299,7 +302,7 @@ ath_beacon_setup(struct ath_softc *sc, struct ath_buf *bf)
 
 	KASSERT(bf->bf_nseg == 1,
 		("multi-segment beacon frame; nseg %u", bf->bf_nseg));
-	ds->ds_data = bf->bf_segs[0].ds_addr;
+
 	/*
 	 * Calculate rate code.
 	 * XXX everything at min xmit rate
@@ -322,8 +325,15 @@ ath_beacon_setup(struct ath_softc *sc, struct ath_buf *bf)
 		, 0				/* rts/cts duration */
 	);
 	/* NB: beacon's BufLen must be a multiple of 4 bytes */
+	segLenList[0] = roundup(m->m_len, 4);
+	segLenList[1] = segLenList[2] = segLenList[3] = 0;
+	bufAddrList[0] = bf->bf_segs[0].ds_addr;
+	bufAddrList[1] = bufAddrList[2] = bufAddrList[3] = 0;
 	ath_hal_filltxdesc(ah, ds
-		, roundup(m->m_len, 4)		/* buffer length */
+		, bufAddrList
+		, segLenList
+		, 0				/* XXX desc id */
+		, sc->sc_bhalq			/* hardware TXQ */
 		, AH_TRUE			/* first segment */
 		, AH_TRUE			/* last segment */
 		, ds				/* first descriptor */
@@ -405,8 +415,10 @@ ath_beacon_proc(void *arg, int pending)
 			if (vap != NULL && vap->iv_state >= IEEE80211_S_RUN) {
 				bf = ath_beacon_generate(sc, vap);
 				if (bf != NULL) {
+					/* XXX should do this using the ds */
 					*bflink = bf->bf_daddr;
-					bflink = &bf->bf_desc->ds_link;
+					ath_hal_gettxdesclinkptr(sc->sc_ah,
+					    bf->bf_desc, &bflink);
 				}
 			}
 		}
