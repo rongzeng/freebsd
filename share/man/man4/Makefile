@@ -32,6 +32,9 @@ MAN=	aac.4 \
 	alc.4 \
 	ale.4 \
 	alpm.4 \
+	altera_avgen.4 \
+	altera_jtag_uart.4 \
+	altera_sdcard.4 \
 	altq.4 \
 	amdpm.4 \
 	${_amdsbwd.4} \
@@ -40,6 +43,7 @@ MAN=	aac.4 \
 	${_bxe.4} \
 	amr.4 \
 	an.4 \
+	${_aout.4} \
 	${_apic.4} \
 	arcmsr.4 \
 	${_asmc.4} \
@@ -710,6 +714,7 @@ _acpi_sony.4=	acpi_sony.4
 _acpi_toshiba.4=acpi_toshiba.4
 _acpi_wmi.4=	acpi_wmi.4
 _aesni.4=	aesni.4
+_aout.4=	aout.4
 _apic.4=	apic.4
 _atrtc.4=	atrtc.4
 _attimer.4=	attimer.4
