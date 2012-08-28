@@ -25,6 +25,25 @@ hint.altera_sdcardc.0.maddr=0x7f008000
 hint.altera_sdcardc.0.msize=0x400
 
 #
+# On-board DE4 8-element LED
+#
+hint.terasic_de4led.0.at="nexus0"
+hint.terasic_de4led.0.maddr=0x7f006000
+hint.terasic_de4led.0.msize=1
+hint.terasic_de4led.0.de4led_0_cmd="f9"
+
+#
+# Terasic Multi-touch LCD (MTL), an optional feature in DE-4 configurations.
+#
+hint.terasic_mtl.0.at="nexus0"
+hint.terasic_mtl.0.reg_maddr=0x70400000
+hint.terasic_mtl.0.reg_msize=0x1000
+hint.terasic_mtl.0.pixel_maddr=0x70000000
+hint.terasic_mtl.0.pixel_msize=0x177000
+hint.terasic_mtl.0.text_maddr=0x70177000
+hint.terasic_mtl.0.text_msize=0x2000
+
+#
 # BERI Hardware Version ROM
 #
 hint.altera_avgen.0.at="nexus0"
@@ -45,6 +64,26 @@ hint.altera_avgen.0.devname="berirom"
 #hint.altera_avgen.0.fileio="rw"
 #hint.altera_avgen.0.mmapio="rwx"
 #hint.altera_avgen.0.devname="de4flash"
+
+#
+# Expose the DE4 buttons and switches via an Avalon "generic" device.
+# 
+hint.altera_avgen.0.at="nexus0"
+hint.altera_avgen.0.maddr=0x7f009000
+hint.altera_avgen.0.msize=2
+hint.altera_avgen.0.width=1
+hint.altera_avgen.0.fileio="r"
+hint.altera_avgen.0.devname="de4bsw"
+
+#
+# General Intel StrataFlash driver
+#
+hint.isf.0.at="nexus0"
+hint.isf.0.maddr=0x74000000
+hint.isf.0.msize=0x2000000
+hint.isf.1.at="nexus0"
+hint.isf.1.maddr=0x76000000
+hint.isf.1.msize=0x2000000
 
 # Reserved configuration blocks.  Don't touch.
 hint.map.0.at="isf0"

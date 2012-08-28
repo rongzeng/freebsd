@@ -192,6 +192,7 @@ MAN=	aac.4 \
 	ipwfw.4 \
 	isci.4 \
 	iscsi_initiator.4 \
+	isf.4 \
 	isp.4 \
 	ispfw.4 \
 	iwi.4 \
@@ -456,6 +457,7 @@ MAN=	aac.4 \
 	targ.4 \
 	tcp.4 \
 	tdfx.4 \
+	terasic_mtl.4 \
 	termios.4 \
 	textdump.4 \
 	ti.4 \
@@ -556,6 +558,7 @@ MLINKS+=age.4 if_age.4
 MLINKS+=agp.4 agpgart.4
 MLINKS+=alc.4 if_alc.4
 MLINKS+=ale.4 if_ale.4
+MLINKS+=altera_sdcard.4 altera_sdcardc.4
 MLINKS+=altq.4 ALTQ.4
 MLINKS+=ath.4 if_ath.4
 MLINKS+=ath_pci.4 if_ath_pci.4
