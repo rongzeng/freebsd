@@ -17,7 +17,7 @@ if [ ! "$_SYSRC_SUBR" ]; then _SYSRC_SUBR=1
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
 # ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
 # FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
 # OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
 # HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
@@ -132,7 +132,7 @@ f_sysrc_get()
 		# Clear the environment of all variables, preventing the
 		# expansion of normals such as `PS1', `TERM', etc.
 		#
-		f_clean_env --except RC_CONFS RC_DEFAULTS SUCCESS
+		f_clean_env --except RC_CONFS RC_DEFAULTS
 
 		. "$RC_DEFAULTS" > /dev/null 2>&1
 
@@ -153,20 +153,16 @@ f_sysrc_get()
 		# If RC_CONFS is defined, set $rc_conf_files to an explicit
 		# value, modifying the default behavior of source_rc_confs().
 		#
-		( : ${RC_CONFS?} ) > /dev/null 2>&1
-		if [ $? -eq ${SUCCESS:-0} ]; then
+		if [ "${RC_CONFS+set}" ]; then
 			rc_conf_files="$RC_CONFS"
 			_rc_confs_set=1
 		fi
-
-		unset SUCCESS
-			# no longer needed
 
 		source_rc_confs > /dev/null 2>&1
 
 		#
 		# If the query was for `rc_conf_files' AND after calling
-		# source_rc_confs the vaue has not changed, then we should
+		# source_rc_confs the value has not changed, then we should
 		# restore the value to the one inherited from RC_DEFAULTS
 		# before performing the final query (preventing us from
 		# returning what was set via RC_CONFS when the intent was
@@ -260,7 +256,7 @@ f_sysrc_find()
 	# If RC_CONFS is defined, set $rc_conf_files to an explicit
 	# value, modifying the default behavior of source_rc_confs().
 	#
-	[ "$RC_CONFS" ] && rc_conf_files="$RC_CONFS"
+	[ "${RC_CONFS+set}" ] && rc_conf_files="$RC_CONFS"
 
 	#
 	# Reverse the order of files in rc_conf_files (the boot process sources
@@ -439,7 +435,7 @@ f_sysrc_set()
 		# If RC_CONFS is defined, use $RC_CONFS
 		# rather than $rc_conf_files.
 		#
-		if [ "$RC_CONFS" ]; then
+		if [ "${RC_CONFS+set}" ]; then
 			file="${RC_CONFS%%[$IFS]*}"
 		else
 			file=$( f_sysrc_get rc_conf_files )
@@ -558,7 +554,7 @@ f_sysrc_delete()
 	#
 	# Operate on each of the specified files
 	#
-	for file in ${RC_CONFS:-$( f_sysrc_get rc_conf_files )}; do
+	for file in ${RC_CONFS-$( f_sysrc_get rc_conf_files )}; do
 		[ -e "$file" ] || continue
 
 		#

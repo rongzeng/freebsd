@@ -109,11 +109,6 @@ __FBSDID("$FreeBSD$");
  */
 #define KERNEL_PT_MAX	78
 
-/* Define various stack sizes in pages */
-#define IRQ_STACK_SIZE	1
-#define ABT_STACK_SIZE	1
-#define UND_STACK_SIZE	1
-
 extern unsigned char kernbase[];
 extern unsigned char _etext[];
 extern unsigned char _edata[];
@@ -287,9 +282,19 @@ physmap_init(void)
 		    availmem_regions[i].mr_start + availmem_regions[i].mr_size,
 		    availmem_regions[i].mr_size);
 
-		phys_avail[j] = availmem_regions[i].mr_start;
-		phys_avail[j + 1] = availmem_regions[i].mr_start +
-		    availmem_regions[i].mr_size;
+		/*
+		 * We should not map the page at PA 0x0000000, the VM can't
+		 * handle it, as pmap_extract() == 0 means failure.
+		 */
+		if (availmem_regions[i].mr_start > 0 ||
+		    availmem_regions[i].mr_size > PAGE_SIZE) {
+			phys_avail[j] = availmem_regions[i].mr_start;
+			if (phys_avail[j] == 0)
+				phys_avail[j] += PAGE_SIZE;
+			phys_avail[j + 1] = availmem_regions[i].mr_start +
+			    availmem_regions[i].mr_size;
+		} else
+			j -= 2;
 	}
 	phys_avail[j] = 0;
 	phys_avail[j + 1] = 0;
@@ -311,7 +316,7 @@ initarm(struct arm_boot_params *abp)
 	set_cpufuncs();
 
 	kmdp = preload_search_by_type("elf kernel");
-	if (kmdp != NULL) 
+	if (kmdp != NULL)
 		dtbp = MD_FETCH(kmdp, MODINFOMD_DTBP, vm_offset_t);
 	else
 		dtbp = (vm_offset_t)NULL;
@@ -323,7 +328,6 @@ initarm(struct arm_boot_params *abp)
 	 */
 	if (dtbp == (vm_offset_t)NULL)
 		dtbp = (vm_offset_t)&fdt_static_dtb;
-
 #endif
 
 	if (OF_install(OFW_FDT, 0) == FALSE)
@@ -432,7 +436,7 @@ initarm(struct arm_boot_params *abp)
 		    &kernel_pt_table[i]);
 
 	pmap_curmaxkvaddr = l2_start + (l2size - 1) * L1_S_SIZE;
-	
+
 	/* Map kernel code and data */
 	pmap_map_chunk(l1pagetable, KERNVIRTADDR, KERNPHYSADDR,
 	   (((uint32_t)(lastaddr) - KERNVIRTADDR) + PAGE_MASK) & ~PAGE_MASK,
@@ -485,7 +489,7 @@ initarm(struct arm_boot_params *abp)
 #endif
 
 	cninit();
-	
+
 	physmem = memsize / PAGE_SIZE;
 
 	debugf("initarm: console initialized\n");
@@ -504,12 +508,8 @@ initarm(struct arm_boot_params *abp)
 	 * of the stack memory.
 	 */
 	cpu_control(CPU_CONTROL_MMU_ENABLE, CPU_CONTROL_MMU_ENABLE);
-	set_stackptr(PSR_IRQ32_MODE,
-	    irqstack.pv_va + IRQ_STACK_SIZE * PAGE_SIZE);
-	set_stackptr(PSR_ABT32_MODE,
-	    abtstack.pv_va + ABT_STACK_SIZE * PAGE_SIZE);
-	set_stackptr(PSR_UND32_MODE,
-	    undstack.pv_va + UND_STACK_SIZE * PAGE_SIZE);
+
+	set_stackptrs(0);
 
 	/*
 	 * We must now clean the cache again....
@@ -556,6 +556,7 @@ initarm(struct arm_boot_params *abp)
 	/* Do basic tuning, hz etc */
 	init_param2(physmem);
 	kdb_init();
+
 	return ((void *)(kernelstack.pv_va + USPACE_SVC_STACK_TOP -
 	    sizeof(struct pcb)));
 }
