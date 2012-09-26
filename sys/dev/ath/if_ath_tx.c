@@ -106,6 +106,11 @@ __FBSDID("$FreeBSD$");
  */
 #define	SWMAX_RETRIES		10
 
+/*
+ * What queue to throw the non-QoS TID traffic into
+ */
+#define	ATH_NONQOS_TID_AC	WME_AC_VO
+
 static int ath_tx_ampdu_pending(struct ath_softc *sc, struct ath_node *an,
     int tid);
 static int ath_tx_ampdu_running(struct ath_softc *sc, struct ath_node *an,
@@ -191,7 +196,7 @@ ath_tx_getac(struct ath_softc *sc, const struct mbuf *m0)
 	if (IEEE80211_QOS_HAS_SEQ(wh))
 		return pri;
 
-	return WME_AC_BE;
+	return ATH_NONQOS_TID_AC;
 }
 
 void
@@ -1355,9 +1360,6 @@ ath_tx_xmit_normal(struct ath_softc *sc, struct ath_txq *txq,
 	 * frames that must go out - eg management/raw frames.
 	 */
 	bf->bf_state.bfs_txflags |= HAL_TXDESC_CLRDMASK;
-
-	/* See if clrdmask needs to be set */
-	ath_tx_update_clrdmask(sc, tid, bf);
 
 	/* Setup the descriptor before handoff */
 	ath_tx_do_ratelookup(sc, bf);
@@ -2820,6 +2822,8 @@ ath_tx_swq(struct ath_softc *sc, struct ieee80211_node *ni, struct ath_txq *txq,
 	} else if (txq->axq_depth < sc->sc_hwq_limit) {
 		/* AMPDU not running, attempt direct dispatch */
 		DPRINTF(sc, ATH_DEBUG_SW_TX, "%s: xmit_normal\n", __func__);
+		/* See if clrdmask needs to be set */
+		ath_tx_update_clrdmask(sc, atid, bf);
 		ath_tx_xmit_normal(sc, txq, bf);
 	} else {
 		/* Busy; queue */
@@ -2862,7 +2866,7 @@ ath_tx_tid_init(struct ath_softc *sc, struct ath_node *an)
 		atid->cleanup_inprogress = 0;
 		atid->clrdmask = 1;	/* Always start by setting this bit */
 		if (i == IEEE80211_NONQOS_TID)
-			atid->ac = WME_AC_BE;
+			atid->ac = ATH_NONQOS_TID_AC;
 		else
 			atid->ac = TID_TO_WME_AC(i);
 	}
@@ -3468,12 +3472,11 @@ ath_tx_node_flush(struct ath_softc *sc, struct ath_node *an)
 		struct ath_tid *atid = &an->an_tid[tid];
 		struct ath_txq *txq = sc->sc_ac2q[atid->ac];
 
-		/* Remove this tid from the list of active tids */
 		ATH_TXQ_LOCK(txq);
-		ath_tx_tid_unsched(sc, atid);
-
 		/* Free packets */
 		ath_tx_tid_drain(sc, an, atid, &bf_cq);
+		/* Remove this tid from the list of active tids */
+		ath_tx_tid_unsched(sc, atid);
 		ATH_TXQ_UNLOCK(txq);
 	}
 
