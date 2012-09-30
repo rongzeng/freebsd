@@ -256,12 +256,6 @@ pt_entry_t	pte_l2_s_proto;
 
 void		(*pmap_copy_page_func)(vm_paddr_t, vm_paddr_t);
 void		(*pmap_zero_page_func)(vm_paddr_t, int, int);
-/*
- * Which pmap is currently 'live' in the cache
- *
- * XXXSCW: Fix for SMP ...
- */
-union pmap_cache_state *pmap_cache_state;
 
 struct msgbuf *msgbufp = 0;
 
@@ -4562,13 +4556,13 @@ retry:
                 managed = true;
 	if (managed) {
 		/*
-		 * the ARM pmap tries to maintain a per-mapping
+		 * The ARM pmap tries to maintain a per-mapping
 		 * reference bit.  The trouble is that it's kept in
 		 * the PV entry, not the PTE, so it's costly to access
-		 * here.  You would need to acquire the page queues
+		 * here.  You would need to acquire the pvh global
 		 * lock, call pmap_find_pv(), and introduce a custom
 		 * version of vm_page_pa_tryrelock() that releases and
-		 * reacquires the page queues lock.  In the end, I
+		 * reacquires the pvh global lock.  In the end, I
 		 * doubt it's worthwhile.  This may falsely report
 		 * the given address as referenced.
 		 */

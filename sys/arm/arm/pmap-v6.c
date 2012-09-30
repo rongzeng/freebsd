@@ -247,13 +247,6 @@ pt_entry_t	pte_l2_l_cache_mode_pt;
 pt_entry_t	pte_l2_s_cache_mode;
 pt_entry_t	pte_l2_s_cache_mode_pt;
 
-/*
- * Which pmap is currently 'live' in the cache
- *
- * XXXSCW: Fix for SMP ...
- */
-union pmap_cache_state *pmap_cache_state;
-
 struct msgbuf *msgbufp = 0;
 
 /*
@@ -263,8 +256,6 @@ static caddr_t crashdumpmap;
 
 extern void bcopy_page(vm_offset_t, vm_offset_t);
 extern void bzero_page(vm_offset_t);
-
-extern vm_offset_t alloc_firstaddr;
 
 char *_tmppt;
 
@@ -2316,7 +2307,6 @@ pmap_remove_all(vm_page_t m)
 	if (TAILQ_EMPTY(&m->md.pv_list))
 		return;
 	rw_wlock(&pvh_global_lock);
-	pmap_remove_write(m);
 	curpm = vmspace_pmap(curproc->p_vmspace);
 	while ((pv = TAILQ_FIRST(&m->md.pv_list)) != NULL) {
 		if (flush == FALSE && (pv->pv_pmap == curpm ||
@@ -2327,6 +2317,8 @@ pmap_remove_all(vm_page_t m)
 		l2b = pmap_get_l2_bucket(pv->pv_pmap, pv->pv_va);
 		KASSERT(l2b != NULL, ("No l2 bucket"));
 		ptep = &l2b->l2b_kva[l2pte_index(pv->pv_va)];
+		if (L2_S_WRITABLE(*ptep))
+			vm_page_dirty(m);
 		*ptep = 0;
 		if (pmap_is_current(pv->pv_pmap))
 			PTE_SYNC(ptep);
@@ -2337,6 +2329,7 @@ pmap_remove_all(vm_page_t m)
 		PMAP_UNLOCK(pv->pv_pmap);
 		pmap_free_pv_entry(pv);
 	}
+	m->md.pvh_attrs &= ~(PVF_MOD | PVF_REF);
 
 	if (flush) {
 		if (PV_BEEN_EXECD(flags))
@@ -3462,9 +3455,59 @@ pmap_remove_write(vm_page_t m)
 int
 pmap_mincore(pmap_t pmap, vm_offset_t addr, vm_paddr_t *locked_pa)
 {
-	printf("pmap_mincore()\n");
+	struct l2_bucket *l2b;
+	pt_entry_t *ptep, pte;
+	vm_paddr_t pa;
+	vm_page_t m;
+	int val;
+	boolean_t managed;
 
-	return (0);
+	PMAP_LOCK(pmap);
+retry:
+	l2b = pmap_get_l2_bucket(pmap, addr);
+	if (l2b == NULL) {
+		val = 0;
+		goto out;
+	}
+	ptep = &l2b->l2b_kva[l2pte_index(addr)];
+	pte = *ptep;
+	if (!l2pte_valid(pte)) {
+		val = 0;
+		goto out;
+	}
+	val = MINCORE_INCORE;
+	if (L2_S_WRITABLE(pte))
+		val |= MINCORE_MODIFIED | MINCORE_MODIFIED_OTHER;
+	managed = FALSE;
+	pa = l2pte_pa(pte);
+	m = PHYS_TO_VM_PAGE(pa);
+	if (m != NULL && (m->oflags & VPO_UNMANAGED) == 0)
+		managed = TRUE;
+	if (managed) {
+		/*
+		 * The ARM pmap tries to maintain a per-mapping
+		 * reference bit.  The trouble is that it's kept in
+		 * the PV entry, not the PTE, so it's costly to access
+		 * here.  You would need to acquire the pvh global
+		 * lock, call pmap_find_pv(), and introduce a custom
+		 * version of vm_page_pa_tryrelock() that releases and
+		 * reacquires the pvh global lock.  In the end, I
+		 * doubt it's worthwhile.  This may falsely report
+		 * the given address as referenced.
+		 */
+		if ((m->md.pvh_attrs & PVF_REF) != 0)
+			val |= MINCORE_REFERENCED | MINCORE_REFERENCED_OTHER;
+	}
+	if ((val & (MINCORE_MODIFIED_OTHER | MINCORE_REFERENCED_OTHER)) !=
+	    (MINCORE_MODIFIED_OTHER | MINCORE_REFERENCED_OTHER) && managed) {
+		/* Ensure that "PHYS_TO_VM_PAGE(pa)->object" doesn't change. */
+		if (vm_page_pa_tryrelock(pmap, pa, locked_pa))
+			goto retry;
+	} else
+out:
+		PA_UNLOCK_COND(*locked_pa);
+	PMAP_UNLOCK(pmap);
+	return (val);
 }
 
 void
