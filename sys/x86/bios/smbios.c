@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
+#include <sys/malloc.h>
 #include <sys/socket.h>
 
 #include <sys/module.h>
@@ -204,6 +205,7 @@ smbios_modevent (mod, what, arg)
 		for (i = 0; i < count; i++) {
 			device_delete_child(device_get_parent(devs[i]), devs[i]);
 		}
+		free(devs, M_TEMP);
 		break;
 	default:
 		break;
