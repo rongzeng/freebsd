@@ -930,15 +930,19 @@ pmap_qenter(vm_offset_t va, vm_page_t *m, int count)
 void
 pmap_qremove(vm_offset_t va, int count)
 {
-	/*
-	 * No need to wb/inv caches here, 
-	 *   pmap_kremove will do it for us
-	 */
+	pt_entry_t *pte;
+	vm_offset_t origva;
 
-	while (count-- > 0) {
-		pmap_kremove(va);
+	if (count < 1)
+		return;
+	mips_dcache_wbinv_range_index(va, PAGE_SIZE * count);
+	origva = va;
+	do {
+		pte = pmap_pte(kernel_pmap, va);
+		*pte = PTE_G;
 		va += PAGE_SIZE;
-	}
+	} while (--count > 0);
+	pmap_invalidate_range(kernel_pmap, origva, va);
 }
 
 /***************************************************
@@ -1616,13 +1620,6 @@ retry:
 	PV_STAT(pv_entry_spare += _NPCPV - 1);
 	return (pv);
 }
-
-/*
- * If it is the first entry on the list, it is actually
- * in the header and we must copy the following entry up
- * to the header.  Otherwise we must search the list for
- * the entry.  In either case we free the now unused entry.
- */
 
 static pv_entry_t
 pmap_pvh_remove(struct md_page *pvh, pmap_t pmap, vm_offset_t va)
@@ -2934,13 +2931,6 @@ pmap_clear_reference(vm_page_t m)
 
 /*
  * Miscellaneous support routines follow
- */
-
-/*
- * Map a set of physical memory pages into the kernel virtual
- * address space. Return a pointer to where it is mapped. This
- * routine is intended to be used for mapping device memory,
- * NOT real memory.
  */
 
 /*
