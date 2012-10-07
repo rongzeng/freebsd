@@ -239,8 +239,7 @@ pmap_lmem_map1(vm_paddr_t phys)
 	sysm = &sysmap_lmem[cpu];
 	sysm->saved_intr = intr;
 	va = sysm->base;
-	npte = TLBLO_PA_TO_PFN(phys) |
-	    PTE_D | PTE_V | PTE_G | PTE_W | PTE_C_CACHE;
+	npte = TLBLO_PA_TO_PFN(phys) | PTE_C_CACHE | PTE_D | PTE_V | PTE_G;
 	pte = pmap_pte(kernel_pmap, va);
 	*pte = npte;
 	sysm->valid1 = 1;
@@ -262,12 +261,10 @@ pmap_lmem_map2(vm_paddr_t phys1, vm_paddr_t phys2)
 	sysm->saved_intr = intr;
 	va1 = sysm->base;
 	va2 = sysm->base + PAGE_SIZE;
-	npte = TLBLO_PA_TO_PFN(phys1) |
-	    PTE_D | PTE_V | PTE_G | PTE_W | PTE_C_CACHE;
+	npte = TLBLO_PA_TO_PFN(phys1) | PTE_C_CACHE | PTE_D | PTE_V | PTE_G;
 	pte = pmap_pte(kernel_pmap, va1);
 	*pte = npte;
-	npte =  TLBLO_PA_TO_PFN(phys2) |
-	    PTE_D | PTE_V | PTE_G | PTE_W | PTE_C_CACHE;
+	npte = TLBLO_PA_TO_PFN(phys2) | PTE_C_CACHE | PTE_D | PTE_V | PTE_G;
 	pte = pmap_pte(kernel_pmap, va2);
 	*pte = npte;
 	sysm->valid1 = 1;
@@ -791,24 +788,25 @@ pmap_extract(pmap_t pmap, vm_offset_t va)
 vm_page_t
 pmap_extract_and_hold(pmap_t pmap, vm_offset_t va, vm_prot_t prot)
 {
-	pt_entry_t *ptep;
-	pt_entry_t pte;
+	pt_entry_t pte, *ptep;
+	vm_paddr_t pa, pte_pa;
 	vm_page_t m;
-	vm_paddr_t pa;
 
 	m = NULL;
 	pa = 0;
 	PMAP_LOCK(pmap);
 retry:
 	ptep = pmap_pte(pmap, va);
-	if ((ptep != NULL)  && ((pte = *ptep) != 0) && 
-	    pte_test(&pte, PTE_V) &&
-	    (pte_test(&pte, PTE_D) || (prot & VM_PROT_WRITE) == 0)) {
-		if (vm_page_pa_tryrelock(pmap, TLBLO_PTE_TO_PA(pte), &pa))
-			goto retry;
-
-		m = PHYS_TO_VM_PAGE(TLBLO_PTE_TO_PA(pte));
-		vm_page_hold(m);
+	if (ptep != NULL) {
+		pte = *ptep;
+		if (pte_test(&pte, PTE_V) && (!pte_test(&pte, PTE_RO) ||
+		    (prot & VM_PROT_WRITE) == 0)) {
+			pte_pa = TLBLO_PTE_TO_PA(pte);
+			if (vm_page_pa_tryrelock(pmap, pte_pa, &pa))
+				goto retry;
+			m = PHYS_TO_VM_PAGE(pte_pa);
+			vm_page_hold(m);
+		}
 	}
 	PA_UNLOCK_COND(pa);
 	PMAP_UNLOCK(pmap);
@@ -2328,7 +2326,8 @@ pmap_kenter_temporary(vm_paddr_t pa, int i)
 		cpu = PCPU_GET(cpuid);
 		sysm = &sysmap_lmem[cpu];
 		/* Since this is for the debugger, no locks or any other fun */
-		npte = TLBLO_PA_TO_PFN(pa) | PTE_D | PTE_V | PTE_G | PTE_W | PTE_C_CACHE;
+		npte = TLBLO_PA_TO_PFN(pa) | PTE_C_CACHE | PTE_D | PTE_V |
+		    PTE_G;
 		pte = pmap_pte(kernel_pmap, sysm->base);
 		*pte = npte;
 		sysm->valid1 = 1;
