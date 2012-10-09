@@ -488,7 +488,11 @@ create init_text8 255 allot
 			menurow @ 2 + menurow !
 			menurow @ menuY @ +
 			at-xy
-			." Options:"
+			s" menu_optionstext" getenv dup -1 <> if
+				type
+			else
+				drop ." Options:"
+			then
 		then
 
 		\ If this is the ACPI menu option, act accordingly.
@@ -931,23 +935,23 @@ create init_text8 255 allot
 
 		s" menu_caption[x][y]"	\ cycle_menuitem caption
 		-rot 2dup 13 + c! rot	\ replace 'x'
-		49 -rot
+		48 -rot
 		begin
 			16 2over rot + c! \ replace 'y'
 			2dup unsetenv
 
-			rot 1+ dup 56 > 2swap rot
+			rot 1+ dup 57 > 2swap rot
 		until
 		2drop drop
 
 		s" ansi_caption[x][y]"	\ cycle_menuitem ANSI caption
 		-rot 2dup 13 + c! rot	\ replace 'x'
-		49 -rot
+		48 -rot
 		begin
 			16 2over rot + c! \ replace 'y'
 			2dup unsetenv
 
-			rot 1+ dup 56 > 2swap rot
+			rot 1+ dup 57 > 2swap rot
 		until
 		2drop drop
 
@@ -972,6 +976,7 @@ create init_text8 255 allot
 
 	\ clear the "Options" menu separator flag
 	s" menu_options" unsetenv
+	s" menu_optionstext" unsetenv
 	0 menuoptions !
 
 ;
