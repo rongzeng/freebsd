@@ -527,10 +527,6 @@ t4_attach(device_t dev)
 		t4_write_reg(sc, A_ULP_RX_TDDP_PSZ, V_HPZ0(0) | V_HPZ1(2) |
 		    V_HPZ2(4) | V_HPZ3(6));
 		t4_set_reg_field(sc, A_ULP_RX_CTL, F_TDDPTAGTCB, F_TDDPTAGTCB);
-		t4_set_reg_field(sc, A_TP_PARA_REG3, F_TUNNELCNGDROP0 |
-		    F_TUNNELCNGDROP1 | F_TUNNELCNGDROP2 | F_TUNNELCNGDROP3,
-		    F_TUNNELCNGDROP0 | F_TUNNELCNGDROP1 | F_TUNNELCNGDROP2 |
-		    F_TUNNELCNGDROP3);
 		t4_set_reg_field(sc, A_TP_PARA_REG5,
 		    V_INDICATESIZE(M_INDICATESIZE) |
 		    F_REARMDDPOFFSET | F_RESETDDPOFFSET,
@@ -2996,7 +2992,7 @@ cxgbe_vlan_config(void *arg, struct ifnet *ifp, uint16_t vid)
 {
 	struct ifnet *vlan;
 
-	if (arg != ifp)
+	if (arg != ifp || ifp->if_type != IFT_ETHER)
 		return;
 
 	vlan = VLAN_DEVAT(ifp, vid);
