@@ -736,7 +736,7 @@ vm_page_readahead_finish(vm_page_t m)
 /*
  *	vm_page_sleep:
  *
- *	Sleep and release the page and page queues locks.
+ *	Sleep and release the page lock.
  *
  *	The object containing the given page must be locked.
  */
@@ -745,8 +745,6 @@ vm_page_sleep(vm_page_t m, const char *msg)
 {
 
 	VM_OBJECT_LOCK_ASSERT(m->object, MA_OWNED);
-	if (mtx_owned(&vm_page_queue_mtx))
-		vm_page_unlock_queues();
 	if (mtx_owned(vm_page_lockptr(m)))
 		vm_page_unlock(m);
 
@@ -1870,28 +1868,6 @@ vm_waitpfault(void)
 }
 
 /*
- *	vm_page_requeue:
- *
- *	Move the given page to the tail of its present page queue.
- *
- *	The page queues must be locked.
- */
-void
-vm_page_requeue(vm_page_t m)
-{
-	struct vpgqueues *vpq;
-	int queue;
-
-	mtx_assert(&vm_page_queue_mtx, MA_OWNED);
-	queue = m->queue;
-	KASSERT(queue != PQ_NONE,
-	    ("vm_page_requeue: page %p is not queued", m));
-	vpq = &vm_page_queues[queue];
-	TAILQ_REMOVE(&vpq->pl, m, pageq);
-	TAILQ_INSERT_TAIL(&vpq->pl, m, pageq);
-}
-
-/*
  *	vm_page_queue_remove:
  *
  *	Remove the given page from the specified queue.
@@ -2933,7 +2909,6 @@ vm_page_cowfault(vm_page_t m)
 	vm_object_t object;
 	vm_pindex_t pindex;
 
-	mtx_assert(&vm_page_queue_mtx, MA_NOTOWNED);
 	vm_page_lock_assert(m, MA_OWNED);
 	object = m->object;
 	VM_OBJECT_LOCK_ASSERT(object, MA_OWNED);

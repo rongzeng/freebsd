@@ -533,9 +533,9 @@ xptioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag, struct thread *td
 			xpt_merge_ccb(&ccb, inccb);
 			ccb.ccb_h.cbfcnp = xptdone;
 			xpt_action(&ccb);
-			CAM_SIM_UNLOCK(bus->sim);
 			bcopy(&ccb, inccb, sizeof(union ccb));
 			xpt_free_path(ccb.ccb_h.path);
+			CAM_SIM_UNLOCK(bus->sim);
 			break;
 
 		}
@@ -582,7 +582,9 @@ xptioctl(struct cdev *dev, u_long cmd, caddr_t addr, int flag, struct thread *td
 			/*
 			 * This is an immediate CCB, we can send it on directly.
 			 */
+			CAM_SIM_LOCK(xpt_path_sim(xpt_periph->path));
 			xpt_action(inccb);
+			CAM_SIM_UNLOCK(xpt_path_sim(xpt_periph->path));
 
 			/*
 			 * Map the buffers back into user space.
@@ -2818,6 +2820,11 @@ xpt_action_default(union ccb *start_ccb)
 				position_type = CAM_DEV_POS_PDRV;
 		}
 
+		/*
+		 * Note that we drop the SIM lock here, because the EDT
+		 * traversal code needs to do its own locking.
+		 */
+		CAM_SIM_UNLOCK(xpt_path_sim(cdm->ccb_h.path));
 		switch(position_type & CAM_DEV_POS_TYPEMASK) {
 		case CAM_DEV_POS_EDT:
 			xptedtmatch(cdm);
@@ -2829,6 +2836,7 @@ xpt_action_default(union ccb *start_ccb)
 			cdm->status = CAM_DEV_MATCH_ERROR;
 			break;
 		}
+		CAM_SIM_LOCK(xpt_path_sim(cdm->ccb_h.path));
 
 		if (cdm->status == CAM_DEV_MATCH_ERROR)
 			start_ccb->ccb_h.status = CAM_REQ_CMP_ERR;
@@ -2981,34 +2989,42 @@ xpt_action_default(union ccb *start_ccb)
 		break;
 	}
 	case XPT_DEBUG: {
+		struct cam_path *oldpath;
+		struct cam_sim *oldsim;
+
 		/* Check that all request bits are supported. */
 		if (start_ccb->cdbg.flags & ~(CAM_DEBUG_COMPILE)) {
 			start_ccb->ccb_h.status = CAM_FUNC_NOTAVAIL;
 			break;
 		}
 
-		cam_dflags = start_ccb->cdbg.flags;
+		cam_dflags = CAM_DEBUG_NONE;
 		if (cam_dpath != NULL) {
-			xpt_free_path(cam_dpath);
+			/* To release the old path we must hold proper lock. */
+			oldpath = cam_dpath;
 			cam_dpath = NULL;
+			oldsim = xpt_path_sim(oldpath);
+			CAM_SIM_UNLOCK(xpt_path_sim(start_ccb->ccb_h.path));
+			CAM_SIM_LOCK(oldsim);
+			xpt_free_path(oldpath);
+			CAM_SIM_UNLOCK(oldsim);
+			CAM_SIM_LOCK(xpt_path_sim(start_ccb->ccb_h.path));
 		}
-		if (cam_dflags != CAM_DEBUG_NONE) {
+		if (start_ccb->cdbg.flags != CAM_DEBUG_NONE) {
 			if (xpt_create_path(&cam_dpath, xpt_periph,
 					    start_ccb->ccb_h.path_id,
 					    start_ccb->ccb_h.target_id,
 					    start_ccb->ccb_h.target_lun) !=
 					    CAM_REQ_CMP) {
 				start_ccb->ccb_h.status = CAM_RESRC_UNAVAIL;
-				cam_dflags = CAM_DEBUG_NONE;
 			} else {
+				cam_dflags = start_ccb->cdbg.flags;
 				start_ccb->ccb_h.status = CAM_REQ_CMP;
 				xpt_print(cam_dpath, "debugging flags now %x\n",
 				    cam_dflags);
 			}
-		} else {
-			cam_dpath = NULL;
+		} else
 			start_ccb->ccb_h.status = CAM_REQ_CMP;
-		}
 		break;
 	}
 	case XPT_FREEZE_QUEUE:
@@ -3425,19 +3441,14 @@ xpt_create_path_unlocked(struct cam_path **new_path_ptr,
 	struct	   cam_path *path;
 	struct	   cam_eb *bus = NULL;
 	cam_status status;
-	int	   need_unlock = 0;
 
 	path = (struct cam_path *)malloc(sizeof(*path), M_CAMPATH, M_WAITOK);
 
-	if (path_id != CAM_BUS_WILDCARD) {
-		bus = xpt_find_bus(path_id);
-		if (bus != NULL) {
-			need_unlock = 1;
-			CAM_SIM_LOCK(bus->sim);
-		}
-	}
+	bus = xpt_find_bus(path_id);
+	if (bus != NULL)
+		CAM_SIM_LOCK(bus->sim);
 	status = xpt_compile_path(path, periph, path_id, target_id, lun_id);
-	if (need_unlock) {
+	if (bus != NULL) {
 		CAM_SIM_UNLOCK(bus->sim);
 		xpt_release_bus(bus);
 	}
@@ -4781,12 +4792,7 @@ xpt_config(void *arg)
 
 	/* Setup debugging path */
 	if (cam_dflags != CAM_DEBUG_NONE) {
-		/*
-		 * Locking is specifically omitted here.  No SIMs have
-		 * registered yet, so xpt_create_path will only be searching
-		 * empty lists of targets and devices.
-		 */
-		if (xpt_create_path(&cam_dpath, xpt_periph,
+		if (xpt_create_path_unlocked(&cam_dpath, xpt_periph,
 				    CAM_DEBUG_BUS, CAM_DEBUG_TARGET,
 				    CAM_DEBUG_LUN) != CAM_REQ_CMP) {
 			printf("xpt_config: xpt_create_path() failed for debug"
