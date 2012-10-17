@@ -67,8 +67,6 @@ SUBDIR=	\
 	${_ciss} \
 	${_cm} \
 	${_cmx} \
-	coda \
-	coda5 \
 	${_coff} \
 	${_coretemp} \
 	${_cp} \
@@ -263,7 +261,6 @@ SUBDIR=	\
 	${_pfsync} \
 	plip \
 	${_pmc} \
-	portalfs \
 	ppbus \
 	ppc \
 	ppi \
@@ -361,7 +358,6 @@ SUBDIR=	\
 	${_wpifw} \
 	${_x86bios} \
 	${_xe} \
-	xfs \
 	xl \
 	${_zfs} \
 	zlib \
