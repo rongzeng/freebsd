@@ -181,6 +181,7 @@ typedef	struct _entry {
 #define	WHEN_REBOOT	0x04
 #define	RUN_AT	0x08
 #define	NOT_UNTIL	0x10
+#define	SEC_RES		0x20
 	time_t	lastrun;
 } entry;
 

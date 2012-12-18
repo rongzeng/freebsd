@@ -202,6 +202,7 @@ load_entry(file, error_func, pw, envp)
 			bit_nset(e->dow, 0, (LAST_DOW-FIRST_DOW+1));
 		} else if (!strcmp("every_second", cmd)) {
 			Debug(DPARS, ("load_entry()...every_second shortcut\n"))
+			e->flags |= SEC_RES;
 			bit_nset(e->second, 0, (LAST_SECOND-FIRST_SECOND+1));
 			bit_nset(e->minute, 0, (LAST_MINUTE-FIRST_MINUTE+1));
 			bit_nset(e->hour, 0, (LAST_HOUR-FIRST_HOUR+1));

@@ -100,7 +100,7 @@ wtap_node_write(struct cdev *dev, struct uio *uio, int ioflag)
 		return (err);
 	}
 
-	MGETHDR(m, M_DONTWAIT, MT_DATA);
+	MGETHDR(m, M_NOWAIT, MT_DATA);
 	m_copyback(m, 0, buf_len, buf);
 
 	CURVNET_SET(TD_TO_VNET(curthread));
@@ -241,7 +241,7 @@ wtap_beacon_intrp(void *arg)
 	 * the beacon frame changed size (probably because
 	 * of the TIM bitmap).
 	 */
-	m = m_dup(avp->beacon, M_DONTWAIT);
+	m = m_dup(avp->beacon, M_NOWAIT);
 	if (ieee80211_beacon_update(avp->bf_node, &avp->av_boff, m, 0)) {
 		printf("%s, need to remap the memory because the beacon frame"
 		    " changed size.\n",__func__);
@@ -334,6 +334,10 @@ wtap_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ],
 	vap = (struct ieee80211vap *) avp;
 	error = ieee80211_vap_setup(ic, vap, name, unit, IEEE80211_M_MBSS,
 	    flags | IEEE80211_CLONE_NOBEACONS, bssid, mac);
+	if (error) {
+		free((struct wtap_vap*) vap, M_80211_VAP);
+		return NULL;
+	}
 
 	/* override various methods */
 	avp->av_recv_mgmt = vap->iv_recv_mgmt;
@@ -348,7 +352,7 @@ wtap_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ],
 	/* complete setup */
 	ieee80211_vap_attach(vap, wtap_media_change, ieee80211_media_status);
 	avp->av_dev = make_dev(&wtap_cdevsw, 0, UID_ROOT, GID_WHEEL, 0600,
-	    (const char *)ic->ic_ifp->if_xname);
+	    "%s", (const char *)ic->ic_ifp->if_xname);
 
 	/* TODO this is a hack to force it to choose the rate we want */
 	ni = ieee80211_ref_node(vap->iv_bss);

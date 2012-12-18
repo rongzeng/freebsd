@@ -103,7 +103,7 @@ bool debug_sort;
 bool need_hint;
 
 #if defined(SORT_THREADS)
-size_t ncpu = 1;
+unsigned int ncpu = 1;
 size_t nthreads = 1;
 #endif
 
@@ -117,7 +117,7 @@ static bool print_symbols_on_debug;
 /*
  * Arguments from file (when file0-from option is used:
  */
-static int argc_from_file0 = -1;
+static size_t argc_from_file0 = (size_t)-1;
 static char **argv_from_file0;
 
 /*
@@ -146,7 +146,7 @@ enum
 #define	NUMBER_OF_MUTUALLY_EXCLUSIVE_FLAGS 6
 static const char mutually_exclusive_flags[NUMBER_OF_MUTUALLY_EXCLUSIVE_FLAGS] = { 'M', 'n', 'g', 'R', 'h', 'V' };
 
-struct option long_options[] = {
+static struct option long_options[] = {
 				{ "batch-size", required_argument, NULL, BS_OPT },
 				{ "buffer-size", required_argument, NULL, 'S' },
 				{ "check", optional_argument, NULL, 'c' },
@@ -244,9 +244,9 @@ read_fns_from_file0(const char *fn)
 			char *line = read_file0_line(&f0r);
 
 			if (line && *line) {
+				if (argc_from_file0 == (size_t)-1)
+					argc_from_file0 = 0;
 				++argc_from_file0;
-				if (argc_from_file0 < 1)
-					argc_from_file0 = 1;
 				argv_from_file0 = sort_realloc(argv_from_file0,
 				    argc_from_file0 * sizeof(char *));
 				if (argv_from_file0 == NULL)
@@ -268,14 +268,16 @@ set_hw_params(void)
 #if defined(SORT_THREADS)
 	size_t ncpusz;
 #endif
-	size_t pages, psize, psz, pszsz;
+	unsigned int pages, psize;
+	size_t psz, pszsz;
 
 	pages = psize = 0;
 #if defined(SORT_THREADS)
 	ncpu = 1;
 	ncpusz = sizeof(size_t);
 #endif
-	psz = pszsz = sizeof(size_t);
+	psz = sizeof(pages);
+	pszsz = sizeof(psize);
 
 	if (sysctlbyname("vm.stats.vm.v_free_count", &pages, &psz,
 	    NULL, 0) < 0) {
@@ -299,6 +301,9 @@ set_hw_params(void)
 
 	free_memory = (unsigned long long) pages * (unsigned long long) psize;
 	available_free_memory = (free_memory * 9) / 10;
+
+	if (available_free_memory < 1024)
+		available_free_memory = 1024;
 }
 
 /*
@@ -1221,7 +1226,7 @@ main(int argc, char **argv)
 		ks->sm.func = get_sort_func(&(ks->sm));
 	}
 
-	if (argc_from_file0 >= 0) {
+	if (argv_from_file0) {
 		argc = argc_from_file0;
 		argv = argv_from_file0;
 	}
