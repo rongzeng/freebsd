@@ -326,8 +326,9 @@ wtap_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ],
 
 	 DWTAP_PRINTF("%s\n", __func__);
 
-	avp = (struct wtap_vap *) malloc(sizeof(struct wtap_vap),
-	    M_80211_VAP, M_NOWAIT | M_ZERO);
+	avp = malloc(sizeof(struct wtap_vap), M_80211_VAP, M_NOWAIT | M_ZERO);
+	if (avp == NULL)
+		return (NULL);
 	avp->id = sc->id;
 	avp->av_md = sc->sc_md;
 	avp->av_bcinterval = msecs_to_ticks(BEACON_INTRERVAL + 100*sc->id);
@@ -335,8 +336,8 @@ wtap_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ],
 	error = ieee80211_vap_setup(ic, vap, name, unit, IEEE80211_M_MBSS,
 	    flags | IEEE80211_CLONE_NOBEACONS, bssid, mac);
 	if (error) {
-		free((struct wtap_vap*) vap, M_80211_VAP);
-		return NULL;
+		free(avp, M_80211_VAP);
+		return (NULL);
 	}
 
 	/* override various methods */
@@ -807,11 +808,7 @@ wtap_attach(struct wtap_softc *sc, const uint8_t *macaddr)
 	ic->ic_regdomain.location = 1; /* Indoors */
 	ic->ic_regdomain.isocc[0] = 'S';
 	ic->ic_regdomain.isocc[1] = 'E';
-	/*
-	 * Indicate we need the 802.11 header padded to a
-	 * 32-bit boundary for 4-address and QoS frames.
-	 */
-	ic->ic_flags |= IEEE80211_F_DATAPAD;
+
 	ic->ic_nchans = 1;
 	ic->ic_channels[0].ic_flags = IEEE80211_CHAN_B;
 	ic->ic_channels[0].ic_freq = 2412;

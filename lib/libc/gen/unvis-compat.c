@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2009 Alan L. Cox <alc@cs.rice.edu>
+ * Copyright (c) 2012 SRI International
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract (FA8750-10-C-0237)
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +30,17 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_VM_H_
-#define	_MACHINE_VM_H_
+#include <vis.h>
 
-/* Memory attribute configuration. */
-#define	VM_MEMATTR_DEFAULT	0
-#define	VM_MEMATTR_UNCACHEABLE	1
+#define	_UNVIS_END	1
 
-#endif /* !_MACHINE_VM_H_ */
+int
+__unvis_44bsd(char *cp, int c, int *astate, int flag)
+{
+
+	if (flag & _UNVIS_END)
+		flag = (flag & ~_UNVIS_END) ^ UNVIS_END;
+	return unvis(cp, c, astate, flag);
+}
+
+__sym_compat(unvis, __vis_44bsd, FBSD_1.0);
