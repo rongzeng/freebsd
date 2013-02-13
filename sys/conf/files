@@ -1294,7 +1294,8 @@ dev/fb/splash.c			optional splash
 dev/fdt/fdt_common.c		optional fdt
 dev/fdt/fdt_pci.c		optional fdt pci
 dev/fdt/fdt_slicer.c		optional fdt cfi | fdt nand
-dev/fdt/fdt_static_dtb.S	optional fdt fdt_dtb_static
+dev/fdt/fdt_static_dtb.S	optional fdt fdt_dtb_static \
+	dependency	"$S/boot/fdt/dts/${FDT_DTS_FILE}"
 dev/fdt/fdtbus.c		optional fdt
 dev/fdt/simplebus.c		optional fdt
 dev/fe/if_fe.c			optional fe
@@ -2681,6 +2682,7 @@ kern/subr_acl_posix1e.c		optional ufs_acl
 kern/subr_autoconf.c		standard
 kern/subr_blist.c		standard
 kern/subr_bus.c			standard
+kern/subr_bus_dma.c		standard
 kern/subr_bufring.c		standard
 kern/subr_clock.c		standard
 kern/subr_devstat.c		standard
