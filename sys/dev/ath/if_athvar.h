@@ -567,7 +567,9 @@ struct ath_softc {
 	/*
 	 * Second set of flags.
 	 */
-	u_int32_t		sc_use_ent  : 1;
+	u_int32_t		sc_use_ent  : 1,
+				sc_rx_stbc  : 1,
+				sc_tx_stbc  : 1;
 
 	/*
 	 * Enterprise mode configuration for AR9380 and later chipsets.
@@ -1295,6 +1297,8 @@ void	ath_intr(void *);
 	((*(_ah)->ah_set11nBurstDuration)((_ah), (_ds), (_dur)))
 #define	ath_hal_clr11n_aggr(_ah, _ds) \
 	((*(_ah)->ah_clr11nAggr)((_ah), (_ds)))
+#define	ath_hal_set11n_virtmorefrag(_ah, _ds, _v) \
+	((*(_ah)->ah_set11nVirtMoreFrag)((_ah), (_ds), (_v)))
 
 #define	ath_hal_gpioCfgOutput(_ah, _gpio, _type) \
 	((*(_ah)->ah_gpioCfgOutput)((_ah), (_gpio), (_type)))

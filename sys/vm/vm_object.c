@@ -165,8 +165,9 @@ vm_object_zdtor(void *mem, int size, void *arg)
 
 	object = (vm_object_t)mem;
 	KASSERT(TAILQ_EMPTY(&object->memq),
-	    ("object %p has resident pages",
-	    object));
+	    ("object %p has resident pages in its memq", object));
+	KASSERT(object->root == NULL,
+	    ("object %p has resident pages in its tree", object));
 #if VM_NRESERVLEVEL > 0
 	KASSERT(LIST_EMPTY(&object->rvq),
 	    ("object %p has reservations",
@@ -194,23 +195,24 @@ vm_object_zinit(void *mem, int size, int flags)
 
 	object = (vm_object_t)mem;
 	bzero(&object->mtx, sizeof(object->mtx));
-	VM_OBJECT_LOCK_INIT(object, "standard object");
+	mtx_init(&object->mtx, "vm object", NULL, MTX_DEF | MTX_DUPOK);
 
 	/* These are true for any object that has been freed */
+	object->root = NULL;
 	object->paging_in_progress = 0;
 	object->resident_page_count = 0;
 	object->shadow_count = 0;
+	object->cache = NULL;
 	return (0);
 }
 
-void
+static void
 _vm_object_allocate(objtype_t type, vm_pindex_t size, vm_object_t object)
 {
 
 	TAILQ_INIT(&object->memq);
 	LIST_INIT(&object->shadow_head);
 
-	object->root = NULL;
 	object->type = type;
 	switch (type) {
 	case OBJT_DEAD:
@@ -241,14 +243,12 @@ _vm_object_allocate(objtype_t type, vm_pindex_t size, vm_object_t object)
 	object->memattr = VM_MEMATTR_DEFAULT;
 	object->cred = NULL;
 	object->charge = 0;
-	object->pg_color = 0;
 	object->handle = NULL;
 	object->backing_object = NULL;
 	object->backing_object_offset = (vm_ooffset_t) 0;
 #if VM_NRESERVLEVEL > 0
 	LIST_INIT(&object->rvq);
 #endif
-	object->cache = NULL;
 
 	mtx_lock(&vm_object_list_mtx);
 	TAILQ_INSERT_TAIL(&vm_object_list, object, object_list);
@@ -266,7 +266,7 @@ vm_object_init(void)
 	TAILQ_INIT(&vm_object_list);
 	mtx_init(&vm_object_list_mtx, "vm object_list", NULL, MTX_DEF);
 	
-	VM_OBJECT_LOCK_INIT(kernel_object, "kernel object");
+	mtx_init(&kernel_object->mtx, "vm object", "kernel object", MTX_DEF);
 	_vm_object_allocate(OBJT_PHYS, OFF_TO_IDX(VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS),
 	    kernel_object);
 #if VM_NRESERVLEVEL > 0
@@ -274,7 +274,7 @@ vm_object_init(void)
 	kernel_object->pg_color = (u_short)atop(VM_MIN_KERNEL_ADDRESS);
 #endif
 
-	VM_OBJECT_LOCK_INIT(kmem_object, "kmem object");
+	mtx_init(&kmem_object->mtx, "vm object", "kmem object", MTX_DEF);
 	_vm_object_allocate(OBJT_PHYS, OFF_TO_IDX(VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS),
 	    kmem_object);
 #if VM_NRESERVLEVEL > 0
@@ -387,7 +387,7 @@ vm_object_pip_wait(vm_object_t object, char *waitid)
 	VM_OBJECT_LOCK_ASSERT(object, MA_OWNED);
 	while (object->paging_in_progress) {
 		object->flags |= OBJ_PIPWNT;
-		msleep(object, VM_OBJECT_MTX(object), PVM, waitid, 0);
+		VM_OBJECT_SLEEP(object, object, PVM, waitid, 0);
 	}
 }
 
@@ -579,8 +579,7 @@ retry:
 					} else if (object->paging_in_progress) {
 						VM_OBJECT_UNLOCK(robject);
 						object->flags |= OBJ_PIPWNT;
-						msleep(object,
-						    VM_OBJECT_MTX(object),
+						VM_OBJECT_SLEEP(object, object,
 						    PDROP | PVM, "objde2", 0);
 						VM_OBJECT_LOCK(robject);
 						temp = robject->backing_object;
@@ -1139,8 +1138,7 @@ shadowlookup:
 			if (object != tobject)
 				VM_OBJECT_UNLOCK(object);
 			m->oflags |= VPO_WANTED;
-			msleep(m, VM_OBJECT_MTX(tobject), PDROP | PVM, "madvpo",
-			    0);
+			VM_OBJECT_SLEEP(tobject, m, PDROP | PVM, "madvpo", 0);
 			VM_OBJECT_LOCK(object);
   			goto relookup;
 		}
@@ -1338,7 +1336,7 @@ retry:
 		if ((m->oflags & VPO_BUSY) || m->busy) {
 			VM_OBJECT_UNLOCK(new_object);
 			m->oflags |= VPO_WANTED;
-			msleep(m, VM_OBJECT_MTX(orig_object), PVM, "spltwt", 0);
+			VM_OBJECT_SLEEP(orig_object, m, PVM, "spltwt", 0);
 			VM_OBJECT_LOCK(new_object);
 			goto retry;
 		}
@@ -1496,7 +1494,7 @@ vm_object_backing_scan(vm_object_t object, int op)
 				if ((p->oflags & VPO_BUSY) || p->busy) {
 					VM_OBJECT_UNLOCK(object);
 					p->oflags |= VPO_WANTED;
-					msleep(p, VM_OBJECT_MTX(backing_object),
+					VM_OBJECT_SLEEP(backing_object, p,
 					    PDROP | PVM, "vmocol", 0);
 					VM_OBJECT_LOCK(object);
 					VM_OBJECT_LOCK(backing_object);
