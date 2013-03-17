@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Andrew Turner
+ * Copyright (C) 2013 Andrew Turner
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,39 +31,19 @@ __FBSDID("$FreeBSD$");
 #ifdef __ARM_EABI__
 
 /*
- * These calculate:
- * q = n / m 
- * With a remainer r.
+ * This implements
+ *  void __aeabi_memset(void *dest, size_t len, int c)
+ * by calling:
+ *  void *memset(dest, c, len)
  *
- * They take n in {r0, r1} and m in {r2, r3} then pass them into the
- * helper function. The hepler functions return q in {r0, r1} as
- * required by the API spec however r is returned on the stack. The
- * ABI required us to return r in {r2, r3}.
- *
- * We need to allocate 8 bytes on the stack to store r, the link
- * register, and a pointer to the space where the helper function
- * will write r to. After returning from the helper fuinction we load
- * the old link register and r from the stack and return.
+ * The arguments are in r0-r2, r3 can be used as a scratch register.
  */
-ENTRY_NP(__aeabi_ldivmod)
-	sub	sp, sp, #8	/* Space for the remainder */
-	stmfd	sp!, {sp, lr}	/* Save a pointer to the above space and lr */
-	bl	PIC_SYM(_C_LABEL(__kern_ldivmod), PLT)
-	ldr	lr, [sp, #4]	/* Restore lr */
-	add	sp, sp, #8	/* Move sp to the remainder value */
-	ldmfd	sp!, {r2, r3}	/* Load the remainder */
-	RET
-END(__aeabi_ldivmod)
-
-ENTRY_NP(__aeabi_uldivmod)
-	sub	sp, sp, #8	/* Space for the remainder */
-	stmfd	sp!, {sp, lr}	/* Save a pointer to the above space and lr */
-	bl	PIC_SYM(_C_LABEL(__qdivrem), PLT)
-	ldr	lr, [sp, #4]	/* Restore lr */
-	add	sp, sp, #8	/* Move sp to the remainder value */
-	ldmfd	sp!, {r2, r3}	/* Load the remainder */
-	RET
-END(__aeabi_uldivmod)
+ENTRY_NP(__aeabi_memset)
+	mov	r3, r2
+	mov	r2, r1
+	mov	r1, r3
+	b	memset
+END(__aeabi_memset)
 
 #endif
 
