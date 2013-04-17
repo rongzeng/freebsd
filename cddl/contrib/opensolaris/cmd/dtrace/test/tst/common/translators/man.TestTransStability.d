@@ -27,23 +27,32 @@
 #pragma ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
- * ASSERTION: D pointers do not allow invalid pointer accesses.
+ * ASSERTION:
+ * The D inline translation mechanism can be used to facilitate stable
+ * translations.
  *
- * SECTION: Pointers and Arrays/Pointer Safety
+ * SECTION: Translators/ Translator Declarations
+ * SECTION: Translators/ Translate Operator
+ * SECTION: Translators/Stable Translations
  *
- * NOTES:
- *
+ * NOTES: Uncomment the pragma that explicitly resets the attributes of
+ * myinfo identifier to Stable/Stable/Common from Private/Private/Unknown.
+ * Run the program with and without the comments as:
+ * /usr/sbin/dtrace -vs man.TestTransStability.d
  */
 
 #pragma D option quiet
 
+inline lwpsinfo_t *myinfo = xlate < lwpsinfo_t *> (curthread);
+
+/*
+#pragma D attributes Stable/Stable/Common myinfo
+*/
+
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
-	trace(x);
-	y = (int *) (x - 3300778156056);
-	*y = 3;
-	trace(*y);
+	trace(myinfo->pr_flag);
+	exit(0);
 }
 
 ERROR

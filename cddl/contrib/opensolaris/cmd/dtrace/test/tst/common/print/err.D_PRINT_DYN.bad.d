@@ -20,33 +20,10 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
- * Use is subject to license terms.
+ * Copyright (c) 2011 by Delphix. All rights reserved.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
-
-/*
- * ASSERTION: D pointers do not allow invalid pointer accesses.
- *
- * SECTION: Pointers and Arrays/Pointer Safety
- *
- * NOTES:
- *
- */
-
-#pragma D option quiet
 
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
-	trace(x);
-	y = (int *) (x - 3300778156056);
-	*y = 3;
-	trace(*y);
-}
-
-ERROR
-{
-	exit(1);
+	print(*curpsinfo);
 }

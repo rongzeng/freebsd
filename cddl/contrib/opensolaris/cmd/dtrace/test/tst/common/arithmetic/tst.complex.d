@@ -24,14 +24,15 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+#pragma	ident	"%Z%%M%	%I%	%E% SMI"
 
 /*
- * ASSERTION: D pointers do not allow invalid pointer accesses.
+ * ASSERTION:
+ * 	Complex expressions.
+ *	Call complex expressions and make sure test succeeds.
+ *	Match expected output in tst.complex.d.out
  *
- * SECTION: Pointers and Arrays/Pointer Safety
- *
- * NOTES:
+ * SECTION: Types, Operators, and Expressions/Arithmetic Operators
  *
  */
 
@@ -39,14 +40,18 @@
 
 BEGIN
 {
-	x = (int *)alloca(sizeof (int));
-	trace(x);
-	y = (int *) (x - 3300778156056);
-	*y = 3;
-	trace(*y);
-}
-
-ERROR
-{
-	exit(1);
+	i = 0;
+	i = i++ + ++i;
+	printf("The value of i is %d\n", i);
+	i = i-- - --i;
+	printf("The value of i is %d\n", i);
+	i = i-- + ++i;
+	printf("The value of i is %d\n", i);
+	i += i++ + -- i + ++i - ++i * i ;
+	printf("The value of i is %d\n", i);
+	i -= i++ * 3;
+	printf("The value of i is %d\n", i);
+	i = i++/i--+i++-++i-++i;
+	printf("The value of i is %d\n", i);
+	exit (0);
 }
