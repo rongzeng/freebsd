@@ -1645,6 +1645,10 @@ uaudio_chan_fill_info_sub(struct uaudio_softc *sc, struct usb_device *udev,
 			bBitResolution = asf1d.v2->bBitResolution;
 			bSubslotSize = asf1d.v2->bSubslotSize;
 
+			/* Map 4-byte aligned 24-bit samples into 32-bit */
+			if (bBitResolution == 24 && bSubslotSize == 4)
+				bBitResolution = 32;
+
 			if (bBitResolution != (bSubslotSize * 8)) {
 				DPRINTF("Invalid bSubslotSize\n");
 				goto next_ep;
@@ -1812,13 +1816,20 @@ uaudio_chan_fill_info_sub(struct uaudio_softc *sc, struct usb_device *udev,
 			chan->num_alt--;
 			goto next_ep;
 		}
-		/* we only accumulate one format at different sample rates */
-		if (chan->num_alt > 1 && chan->pcm_format[0] != format) {
-			DPRINTF("Multiple formats is not supported\n");
-			chan->num_alt--;
-			goto next_ep;
+		if (chan->num_alt > 1) {
+			/* we only accumulate one format at different sample rates */
+			if (chan->pcm_format[0] != format) {
+				DPRINTF("Multiple formats is not supported\n");
+				chan->num_alt--;
+				goto next_ep;
+			}
+			/* ignore if duplicate sample rate entry */
+			if (rate == chan->usb_alt[chan->num_alt - 2].sample_rate) {
+				DPRINTF("Duplicate sample rate detected\n");
+				chan->num_alt--;
+				goto next_ep;
+			}
 		}
-
 		chan->pcm_cap.fmtlist = chan->pcm_format;
 		chan->pcm_cap.fmtlist[0] = format;
 
@@ -1976,10 +1987,6 @@ uaudio_chan_play_sync_callback(struct usb_xfer *xfer, usb_error_t error)
 
 		while (temp > (sample_rate + (sample_rate / 2)))
 			temp /= 2;
-
-		/* bias */
-
-		temp += (sample_rate + 1999) / 2000;
 
 		/* compare */
 
