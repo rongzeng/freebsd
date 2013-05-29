@@ -2616,10 +2616,17 @@ build_medialist(struct port_info *pi)
 			ifmedia_add(media, m | IFM_40G_SR4, data, NULL);
 			ifmedia_set(media, m | IFM_40G_SR4);
 			break;
+
 		case FW_PORT_MOD_TYPE_TWINAX_PASSIVE:
 		case FW_PORT_MOD_TYPE_TWINAX_ACTIVE:
 			ifmedia_add(media, m | IFM_40G_CR4, data, NULL);
 			ifmedia_set(media, m | IFM_40G_CR4);
+			break;
+
+		case FW_PORT_MOD_TYPE_NONE:
+			m &= ~IFM_FDX;
+			ifmedia_add(media, m | IFM_NONE, data, NULL);
+			ifmedia_set(media, m | IFM_NONE);
 			break;
 
 		default:
@@ -7125,9 +7132,11 @@ static devclass_t cxgbe_devclass, cxl_devclass;
 
 DRIVER_MODULE(t4nex, pci, t4_driver, t4_devclass, mod_event, 0);
 MODULE_VERSION(t4nex, 1);
+MODULE_DEPEND(t4nex, firmware, 1, 1, 1);
 
 DRIVER_MODULE(t5nex, pci, t5_driver, t5_devclass, mod_event, 0);
 MODULE_VERSION(t5nex, 1);
+MODULE_DEPEND(t5nex, firmware, 1, 1, 1);
 
 DRIVER_MODULE(cxgbe, t4nex, cxgbe_driver, cxgbe_devclass, 0, 0);
 MODULE_VERSION(cxgbe, 1);
