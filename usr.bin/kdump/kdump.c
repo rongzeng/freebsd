@@ -74,6 +74,7 @@ extern int errno;
 #include <grp.h>
 #include <inttypes.h>
 #include <locale.h>
+#include <netdb.h>
 #include <nl_types.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -240,8 +241,10 @@ main(int argc, char *argv[])
 	 * XXXPJD: There should be strerror_init() and strsignal_init() in libc.
 	 */
 	(void)catopen("libc", NL_CAT_LOCALE);
-	if (cap_enter() < 0 && errno != ENOSYS)
-		err(1, "unable to enter capability mode");
+	if (resolv == 0) {
+		if (cap_enter() < 0 && errno != ENOSYS)
+			err(1, "unable to enter capability mode");
+	}
 	limitfd(STDIN_FILENO);
 	limitfd(STDOUT_FILENO);
 	limitfd(STDERR_FILENO);
@@ -1529,7 +1532,8 @@ ktrsockaddr(struct sockaddr *sa)
 		memset(&sa_in6, 0, sizeof(sa_in6));
 		memcpy(&sa_in6, sa, sa->sa_len);
 		check_sockaddr_len(in6);
-		inet_ntop(AF_INET6, &sa_in6.sin6_addr, addr, sizeof addr);
+		getnameinfo((struct sockaddr *)&sa_in6, sizeof(sa_in6),
+		    addr, sizeof(addr), NULL, 0, NI_NUMERICHOST);
 		printf("[%s]:%u", addr, htons(sa_in6.sin6_port));
 		break;
 	}
